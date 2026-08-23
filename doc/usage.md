@@ -17,7 +17,9 @@ well with PIE (Position Independent Executable) binaries where modules are loade
 addresses each run. For non-PIE executables (compiled with `-no-pie`), the main executable's
 addresses will be reported relative to the executable's base load address, usually 0x400000 on x64
 Linux. Consequently, the reported addresses will not match what is reported by e.g. `objdump` or
-`nm`. 
+`nm`. On Windows, `addr` is the offset from the module base returned by `GetModuleHandleEx`, and
+`sname` comes from DbgHelp when a PDB is available. Windows walks at most 64 frames because that is
+the `CaptureStackBackTrace` limit.
 
 Return `true` to continue walking, `false` to stop.
 

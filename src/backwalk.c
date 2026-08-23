@@ -1,28 +1,48 @@
+#ifndef _WIN32
 // NOLINTNEXTLINE(bugprone-reserved-identifier, readability-identifier-naming)
 #define _GNU_SOURCE
+#endif
 #include "backwalk/backwalk.h"
 
-#include <dlfcn.h>    // for dladdr, Dl_info
+#ifndef _WIN32
+#include <dlfcn.h>  // for dladdr, Dl_info
+#endif
 #include <stdbool.h>  // for bool, false, true
 #include <stddef.h>   // for NULL, size_t
 #include <stdint.h>   // for uintptr_t
 #include <stdlib.h>   // for free, malloc
 
-#include "context.h"  // for context_get_ip, context_init, context_step, con...
-#include "debug.h"    // for BW_PRINT_FRAME
+#ifndef _WIN32
+#include "context.h"  // for context_get_ip, context_init, context_step
+#else
+#include "win.h"  // for bw_win_capture, bw_win_resolve
+#endif
+#include "common.h"  // for BW_NOINLINE
+#include "debug.h"   // for BW_PRINT_FRAME
 
 static bool bw_frame_process(uintptr_t ip, bw_backtrace_cb cb, void* arg) {
-    Dl_info info;
     uintptr_t mod_addr = 0;
-    const char* fname = NULL;
-    const char* sname = NULL;
+    const char* fname = "?";
+    const char* sname = "?";
+#ifdef _WIN32
+    char fname_buf[BW_WIN_FNAME_MAX];
+    char sname_buf[BW_WIN_SNAME_MAX];
+#else
+    Dl_info info;
+#endif
 
-        // NOLINTNEXTLINE(performance-no-int-to-ptr)
+#ifdef _WIN32
+    bw_win_resolve(ip, &mod_addr, fname_buf, sizeof(fname_buf), sname_buf, sizeof(sname_buf));
+    fname = fname_buf;
+    sname = sname_buf;
+#else
+    // NOLINTNEXTLINE(performance-no-int-to-ptr)
     if (dladdr((const void*)(ip - 1), &info)) {
         mod_addr = ip - (uintptr_t)info.dli_fbase;
     }
     fname = info.dli_fname ? info.dli_fname : "?";
     sname = info.dli_sname ? info.dli_sname : "?";
+#endif
 
     BW_PRINT_FRAME(mod_addr, fname, sname);
 
@@ -33,7 +53,16 @@ static bool bw_frame_process(uintptr_t ip, bw_backtrace_cb cb, void* arg) {
     return true;
 }
 
-bool bw_backtrace(bw_backtrace_cb cb, void* arg) {
+BW_NOINLINE bool bw_backtrace(bw_backtrace_cb cb, void* arg) {
+#ifdef _WIN32
+    uintptr_t ips[BW_WIN_MAX_FRAMES];
+    const size_t n = bw_win_capture(ips, BW_WIN_MAX_FRAMES);
+    for (size_t i = 0; i < n; ++i) {
+        if (!bw_frame_process(ips[i], cb, arg)) {
+            return false;
+        }
+    }
+#else
     context_t ctx;
     context_init(&ctx);
 
@@ -43,6 +72,7 @@ bool bw_backtrace(bw_backtrace_cb cb, void* arg) {
             return false;
         };
     }
+#endif
 
     return true;
 }
@@ -83,7 +113,18 @@ void bw_context_fini(bw_context_t* bw_ctx) {
     free(bw_ctx);
 }
 
-bool bw_backtrace_collect(bw_context_t* bw_ctx) {
+BW_NOINLINE bool bw_backtrace_collect(bw_context_t* bw_ctx) {
+#ifdef _WIN32
+    size_t n = 0;
+
+    if (bw_ctx == NULL || bw_ctx->ip == NULL || bw_ctx->ip_max_cnt == 0) {
+        return false;
+    }
+
+    n = bw_win_capture(bw_ctx->ip, bw_ctx->ip_max_cnt);
+    bw_ctx->ip_cnt = n;
+    return n < bw_ctx->ip_max_cnt;
+#else
     context_t ctx;
     context_init(&ctx);
     size_t ip_cnt = 0;
@@ -98,6 +139,7 @@ bool bw_backtrace_collect(bw_context_t* bw_ctx) {
     }
 
     return true;
+#endif
 }
 
 bool bw_backtrace_process(bw_context_t* bw_ctx, bw_backtrace_cb cb, void* arg) {

@@ -1,14 +1,13 @@
 # Backwalk
 
-**Backwalk** is a lightweight, cross-platform stack backtracing library written in C for x86_64, AArch64
-and ARM architectures. It provides a simple callback-based interface for collecting stack traces
-with symbol resolution.
+**Backwalk** is a lightweight stack backtracing library written in C. On Unix it walks frame
+pointers on x86_64, AArch64, and ARM. On Windows it uses `CaptureStackBackTrace` (x86, x64, ARM64).
+It provides a simple callback-based interface for collecting stack traces with symbol resolution.
 
 ## Features
 
-- **Cross-platform**: Supports x86_64, AArch64, and ARM architectures
-- **Frame pointer-based**: Uses frame pointer walking for stack traversal
-- **Symbol resolution**: Automatic symbol resolution using `dladdr()`
+- **Unix and Windows**: Frame-pointer walk plus `dladdr()` on Unix; `CaptureStackBackTrace` plus DbgHelp on Windows
+- **Symbol resolution**: `dladdr()` on Unix, `SymFromAddr` on Windows (names need `-rdynamic` / PDB)
 - **Thread-safe**: Safe for use in multithreaded environments
 - **C++ compatible**: Full C++ support with proper linkage
 
@@ -17,9 +16,9 @@ with symbol resolution.
 ### Prerequisites
 
 - **CMake** 3.20 or newer
-- **GCC** 10+ or **Clang** (with C99 and C++11 support)
-- **libdl** (typically included with glibc)
-- **Frame pointers** must be enabled (`-fno-omit-frame-pointer`)
+- **GCC** 10+, **Clang**, or **MSVC** (C99 / C++11)
+- **Unix**: libdl, and frame pointers (`-fno-omit-frame-pointer`)
+- **Windows**: DbgHelp (`dbghelp.lib`); PDB recommended for function names
 
 ### Quick Build
 
@@ -84,16 +83,19 @@ Note: Addresses are module-relative offsets, not absolute virtual addresses. See
 gcc -fno-omit-frame-pointer -o example example.c -lbackwalk -ldl -rdynamic
 ```
 
-**Important**: Always compile with `-fno-omit-frame-pointer` and link with `-rdynamic` for best
-results.
+**Unix**: compile with `-fno-omit-frame-pointer` and link with `-rdynamic` for named frames.
+
+**Windows**: link `dbghelp`. Function names need a PDB next to the executable. Frame pointers are
+not required; `CaptureStackBackTrace` uses the OS unwind tables.
 
 For detailed usage patterns and complete examples, see the [`doc/`](doc/) directory.
 
 ### Limitations
 
-- Requires frame pointers to be preserved (`-fno-omit-frame-pointer`)
-- Currently supports only x86_64, AArch64, and ARM architectures
-- Symbol resolution limited by available symbol information
+- Unix walk requires frame pointers (`-fno-omit-frame-pointer`)
+- Unix arches: x86_64, AArch64, ARM. Windows: x86, x64, ARM64 via `CaptureStackBackTrace`
+- Windows traces are capped at 64 frames (`CaptureStackBackTrace` / `RtlCaptureStackBackTrace`)
+- Symbol resolution limited by available symbol information (`-rdynamic` / PDB)
 - NOT async-signal-safe (yet)
 
 ## License

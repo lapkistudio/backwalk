@@ -151,15 +151,107 @@ jobs:
       run: ctest --test-dir ${{github.workspace}}/build -V
 
   build-result:
-    needs: build
+    needs: [build, windows, windows-sanitizers]
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Aggregate build results
         run: |
-          if [ "${{ needs.build.result }}" == "success" ]; then
+          if [ "${{ needs.build.result }}" = "success" ] && [ "${{ needs.windows.result }}" = "success" ] && [ "${{ needs.windows-sanitizers.result }}" = "success" ]; then
             echo "All build steps succeeded"
             exit 0
           else
-            echo "One or more build steps failed"
+            echo "build=${{ needs.build.result }} windows=${{ needs.windows.result }} windows-sanitizers=${{ needs.windows-sanitizers.result }}"
             exit 1
           fi
+
+  windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [msvc, clang-cl, clang]
+        config: [Debug, RelWithDebInfo]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Add VS LLVM to PATH
+        if: matrix.compiler != 'msvc'
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $clang = & $vswhere -latest -products * -find "VC\Tools\Llvm\x64\bin\clang.exe" | Select-Object -First 1
+          if (-not $clang) {
+            $fallback = Join-Path ${env:ProgramFiles} "LLVM\bin\clang.exe"
+            if (Test-Path $fallback) { $clang = $fallback }
+          }
+          if (-not $clang) { throw "clang.exe not found" }
+          $bin = Split-Path $clang
+          Add-Content -Path $env:GITHUB_PATH -Value $bin
+          Write-Host "LLVM bin: $bin"
+
+      - name: Configure
+        shell: cmd
+        run: |
+          set ARGS=-B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.config }}
+          if "${{ matrix.compiler }}"=="clang-cl" set ARGS=%ARGS% -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl
+          if "${{ matrix.compiler }}"=="clang" set ARGS=%ARGS% -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+          cmake %ARGS%
+
+      - name: Build
+        shell: cmd
+        run: cmake --build build
+
+      - name: Test
+        shell: cmd
+        run: ctest --test-dir build --output-on-failure
+
+  windows-sanitizers:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: msvc
+            sanitizer: asan
+            flags: -DBW_ENABLE_ASAN=ON
+          - compiler: clang
+            sanitizer: asan
+            flags: -DBW_ENABLE_ASAN=ON
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Add VS LLVM to PATH
+        if: matrix.compiler != 'msvc'
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $clang = & $vswhere -latest -products * -find "VC\Tools\Llvm\x64\bin\clang.exe" | Select-Object -First 1
+          if (-not $clang) {
+            $fallback = Join-Path ${env:ProgramFiles} "LLVM\bin\clang.exe"
+            if (Test-Path $fallback) { $clang = $fallback }
+          }
+          if (-not $clang) { throw "clang.exe not found" }
+          $bin = Split-Path $clang
+          Add-Content -Path $env:GITHUB_PATH -Value $bin
+          Write-Host "LLVM bin: $bin"
+
+      - name: Configure
+        shell: cmd
+        run: |
+          set ARGS=-B build -G Ninja -DCMAKE_BUILD_TYPE=Debug ${{ matrix.flags }}
+          if "${{ matrix.compiler }}"=="clang-cl" set ARGS=%ARGS% -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl
+          if "${{ matrix.compiler }}"=="clang" set ARGS=%ARGS% -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+          cmake %ARGS%
+
+      - name: Build
+        shell: cmd
+        run: cmake --build build
+
+      - name: Test
+        shell: cmd
+        run: ctest --test-dir build --output-on-failure

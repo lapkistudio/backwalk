@@ -63,7 +63,7 @@ bool count_all_frames_cb(uintptr_t addr, const char* fname, const char* sname, v
 
 // Extremely deep recursion to test stack limits
 // NOLINTNEXTLINE(misc-no-recursion)
-__attribute__((noinline)) bool deep_recursion(int depth, int* max_frames_seen) {
+BW_NOINLINE bool deep_recursion(int depth, int* max_frames_seen) {
     if (depth <= 0) {
         // At the deepest point, run backtrace
         int frame_count = 0;
@@ -175,12 +175,12 @@ TEST(callback_modifies_arg, {
 // Test with function pointers and indirect calls
 typedef bool (*test_func_ptr_t)(void);
 
-__attribute__((noinline)) bool indirect_call_helper(void) {
+BW_NOINLINE bool indirect_call_helper(void) {
     int count = 0;
     return bw_backtrace(stop_immediately_cb, &count);
 }
 
-__attribute__((noinline)) bool call_through_function_pointer(test_func_ptr_t func) {
+BW_NOINLINE bool call_through_function_pointer(test_func_ptr_t func) {
     return func();
 }
 

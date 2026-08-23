@@ -1,8 +1,92 @@
-#include <pthread.h>            // for pthread_join, pthread_create, pthread_t
 #include <stdbool.h>            // for bool, false, true
 #include <stdint.h>             // for uintptr_t
+#include <stdlib.h>             // for malloc, free
 #include <string.h>             // for memset
-#include <unistd.h>             // for NULL, usleep
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#else
+#include <pthread.h>            // for pthread_join, pthread_create, pthread_t
+#include <unistd.h>             // for usleep
+#endif
+
+#include "common.h"             // for BW_UNUSED
+#include "backwalk/backwalk.h"  // for bw_backtrace, bw_backtrace_cb
+
+#include "test.h"               // for TEST_ERROR_NONZERO, TEST, TEST_ASSERT...
+
+#ifdef _WIN32
+typedef HANDLE bw_thread_t;
+typedef DWORD bw_tid_t;
+
+typedef struct {
+    void* (*start)(void*);
+    void* arg;
+} bw_thread_wrap_t;
+
+static DWORD WINAPI bw_thread_trampoline(void* p) {
+    bw_thread_wrap_t wrap = *(bw_thread_wrap_t*)p;
+    free(p);
+    (void)wrap.start(wrap.arg);
+    return 0;
+}
+
+static int bw_thread_spawn(bw_thread_t* thread, void* (*start)(void*), void* arg) {
+    bw_thread_wrap_t* wrap = (bw_thread_wrap_t*)malloc(sizeof(*wrap));
+    if (wrap == NULL) {
+        return 1;
+    }
+    wrap->start = start;
+    wrap->arg = arg;
+    *thread = CreateThread(NULL, 0, bw_thread_trampoline, wrap, 0, NULL);
+    if (*thread == NULL) {
+        free(wrap);
+        return 1;
+    }
+    return 0;
+}
+
+static int bw_thread_join(bw_thread_t thread) {
+    DWORD rc = WaitForSingleObject(thread, INFINITE);
+    (void)CloseHandle(thread);
+    return rc == WAIT_OBJECT_0 ? 0 : 1;
+}
+
+static void bw_sleep_ms(DWORD ms) {
+    Sleep(ms);
+}
+
+static bw_tid_t bw_tid(void) {
+    return GetCurrentThreadId();
+}
+
+static int bw_atomic_add(int* p, int v) {
+    return (int)InterlockedAdd((LONG*)p, (LONG)v);
+}
+#else
+typedef pthread_t bw_thread_t;
+typedef pthread_t bw_tid_t;
+
+static int bw_thread_spawn(bw_thread_t* thread, void* (*start)(void*), void* arg) {
+    return pthread_create(thread, NULL, start, arg);
+}
+
+static int bw_thread_join(bw_thread_t thread) {
+    return pthread_join(thread, NULL);
+}
+
+static void bw_sleep_ms(unsigned ms) {
+    BW_UNUSED(usleep((useconds_t)ms * 1000U));
+}
+
+static bw_tid_t bw_tid(void) {
+    return pthread_self();
+}
+
+static int bw_atomic_add(int* p, int v) {
+    return __sync_fetch_and_add(p, v);
+}
+#endif
 
 #include "common.h"             // for BW_UNUSED
 #include "backwalk/backwalk.h"  // for bw_backtrace, bw_backtrace_cb
@@ -19,7 +103,7 @@ bool thread_safe_counter(uintptr_t addr, const char* fname, const char* sname, v
     BW_UNUSED(sname);
 
     volatile int* count = (volatile int*)arg;
-    __sync_fetch_and_add(count, 1); // Atomic increment
+    (void)bw_atomic_add((int*)count, 1);
 
     return true;
 }
@@ -32,17 +116,17 @@ bool track_thread_data(uintptr_t addr, const char* fname, const char* sname, voi
         int total_calls;
         int valid_fnames;
         int valid_snames;
-        pthread_t thread_id;
+        bw_tid_t thread_id;
     }* stats = (struct thread_stats*)arg;
 
-    __sync_fetch_and_add(&stats->total_calls, 1);
+    (void)bw_atomic_add(&stats->total_calls, 1);
 
     if (fname && fname[0] != '\0') {
-        __sync_fetch_and_add(&stats->valid_fnames, 1);
+        (void)bw_atomic_add(&stats->valid_fnames, 1);
     }
 
     if (sname && sname[0] != '\0') {
-        __sync_fetch_and_add(&stats->valid_snames, 1);
+        (void)bw_atomic_add(&stats->valid_snames, 1);
     }
 
     return true;
@@ -58,9 +142,8 @@ typedef struct {
 } thread_data_t;
 
 // Basic backtrace thread function
-__attribute__((noinline)) void* backtrace_thread_func(void* arg) {
+BW_NOINLINE void* backtrace_thread_func(void* arg) {
     thread_data_t* data = (thread_data_t*)arg;
-    const int delay_usecs = 1000;
 
     for (int i = 0; i < data->iterations; i++) {
         int local_count = 0;
@@ -73,8 +156,7 @@ __attribute__((noinline)) void* backtrace_thread_func(void* arg) {
 
         data->frames_found += local_count;
 
-        // Small delay to increase chance of thread interleaving
-        BW_UNUSED(usleep(delay_usecs)); // 1ms
+        bw_sleep_ms(1);
     }
 
     data->success = true;
@@ -83,7 +165,7 @@ __attribute__((noinline)) void* backtrace_thread_func(void* arg) {
 
 // Recursive thread function to create deeper stacks
 // NOLINTNEXTLINE(misc-no-recursion)
-__attribute__((noinline)) void* recursive_thread_helper(void* arg, int depth) {
+BW_NOINLINE void* recursive_thread_helper(void* arg, int depth) {
     if (depth <= 0) {
         return backtrace_thread_func(arg);
     }
@@ -91,13 +173,13 @@ __attribute__((noinline)) void* recursive_thread_helper(void* arg, int depth) {
     return recursive_thread_helper(arg, depth - 1);
 }
 
-__attribute__((noinline)) void* recursive_backtrace_thread(void* arg) {
+BW_NOINLINE void* recursive_backtrace_thread(void* arg) {
     const int recursion_depth = 5;
     return recursive_thread_helper(arg, recursion_depth); // 5 levels of recursion
 }
 
 // Function pointer thread to test indirect calls
-__attribute__((noinline)) void* function_pointer_thread(void* arg) {
+BW_NOINLINE void* function_pointer_thread(void* arg) {
     thread_data_t* data = (thread_data_t*)arg;
 
     // Use function pointer for backtrace call
@@ -121,7 +203,7 @@ __attribute__((noinline)) void* function_pointer_thread(void* arg) {
 
 TEST(basic_multithreaded_backtrace, {
     const int num_threads = 4;
-    pthread_t threads[MAX_THREADS];
+    bw_thread_t threads[MAX_THREADS];
     thread_data_t thread_data[MAX_THREADS];
     volatile int shared_counter = 0;
 
@@ -136,13 +218,13 @@ TEST(basic_multithreaded_backtrace, {
 
     // Create threads
     for (int i = 0; i < num_threads; i++) {
-        int retval = pthread_create(&threads[i], NULL, backtrace_thread_func, &thread_data[i]);
+        int retval = bw_thread_spawn(&threads[i], backtrace_thread_func, &thread_data[i]);
         TEST_ERROR_NONZERO(retval);
     }
 
     // Join threads
     for (int i = 0; i < num_threads; i++) {
-        TEST_ERROR_NONZERO(pthread_join(threads[i], NULL));
+        TEST_ERROR_NONZERO(bw_thread_join(threads[i]));
 
         TEST_ASSERT_TRUE(thread_data[i].success);
         TEST_ASSERT_GE_INT32(thread_data[i].frames_found, thread_data[i].iterations);
@@ -151,7 +233,7 @@ TEST(basic_multithreaded_backtrace, {
 
 TEST(recursive_multithreaded_backtrace, {
     const int num_threads = 3;
-    pthread_t threads[MAX_THREADS];
+    bw_thread_t threads[MAX_THREADS];
     thread_data_t thread_data[MAX_THREADS];
 
     // Initialize thread data
@@ -165,20 +247,20 @@ TEST(recursive_multithreaded_backtrace, {
 
     // Create threads with recursive calls
     for (int i = 0; i < num_threads; i++) {
-        int retval = pthread_create(&threads[i], NULL, recursive_backtrace_thread, &thread_data[i]);
+        int retval = bw_thread_spawn(&threads[i], recursive_backtrace_thread, &thread_data[i]);
         TEST_ERROR_NONZERO(retval);
     }
 
     // Join threads
     for (int i = 0; i < num_threads; i++) {
-        TEST_ERROR_NONZERO(pthread_join(threads[i], NULL));
+        TEST_ERROR_NONZERO(bw_thread_join(threads[i]));
         TEST_ASSERT_TRUE(thread_data[i].success);
     }
 })
 
 TEST(function_pointer_multithreaded, {
     const int num_threads = 2;
-    pthread_t threads[MAX_THREADS];
+    bw_thread_t threads[MAX_THREADS];
     thread_data_t thread_data[MAX_THREADS];
 
     // Initialize thread data
@@ -192,13 +274,13 @@ TEST(function_pointer_multithreaded, {
 
     // Create threads using function pointers
     for (int i = 0; i < num_threads; i++) {
-        int retval = pthread_create(&threads[i], NULL, function_pointer_thread, &thread_data[i]);
+        int retval = bw_thread_spawn(&threads[i], function_pointer_thread, &thread_data[i]);
         TEST_ERROR_NONZERO(retval);
     }
 
     // Join threads
     for (int i = 0; i < num_threads; i++) {
-        TEST_ERROR_NONZERO(pthread_join(threads[i], NULL));
+        TEST_ERROR_NONZERO(bw_thread_join(threads[i]));
         TEST_ASSERT_TRUE(thread_data[i].success);
     }
 })
@@ -206,7 +288,7 @@ TEST(function_pointer_multithreaded, {
 // High contention test with many threads
 TEST(high_contention_backtrace, {
     const int num_threads = 8;
-    pthread_t threads[MAX_THREADS];
+    bw_thread_t threads[MAX_THREADS];
     thread_data_t thread_data[MAX_THREADS];
 
     // Initialize thread data for high contention
@@ -220,14 +302,14 @@ TEST(high_contention_backtrace, {
 
     // Create many threads simultaneously
     for (int i = 0; i < num_threads; i++) {
-        int retval = pthread_create(&threads[i], NULL, backtrace_thread_func, &thread_data[i]);
+        int retval = bw_thread_spawn(&threads[i], backtrace_thread_func, &thread_data[i]);
         TEST_ERROR_NONZERO(retval);
     }
 
     // Join all threads
     int successful_threads = 0;
     for (int i = 0; i < num_threads; i++) {
-        TEST_ERROR_NONZERO(pthread_join(threads[i], NULL));
+        TEST_ERROR_NONZERO(bw_thread_join(threads[i]));
 
         if (thread_data[i].success) {
             successful_threads++;
@@ -244,11 +326,11 @@ void* data_collection_thread(void* arg) {
         int total_calls;
         int valid_fnames;
         int valid_snames;
-        pthread_t thread_id;
+        bw_tid_t thread_id;
         bool success;
     }* stats = (struct thread_stats*)arg;
 
-    stats->thread_id = pthread_self();
+    stats->thread_id = bw_tid();
     stats->success = true;
 
     // Do several backtraces in this thread
@@ -266,12 +348,12 @@ void* data_collection_thread(void* arg) {
 
 TEST(thread_local_data_collection, {
     const int num_threads = 4;
-    pthread_t threads[MAX_THREADS];
+    bw_thread_t threads[MAX_THREADS];
     struct thread_stats {
         int total_calls;
         int valid_fnames;
         int valid_snames;
-        pthread_t thread_id;
+        bw_tid_t thread_id;
         bool success;
     } stats[MAX_THREADS];
 
@@ -282,13 +364,13 @@ TEST(thread_local_data_collection, {
 
     // Create data collection threads
     for (int i = 0; i < num_threads; i++) {
-        int retval = pthread_create(&threads[i], NULL, data_collection_thread, &stats[i]);
+        int retval = bw_thread_spawn(&threads[i], data_collection_thread, &stats[i]);
         TEST_ERROR_NONZERO(retval);
     }
 
     // Join threads and verify data
     for (int i = 0; i < num_threads; i++) {
-        TEST_ERROR_NONZERO(pthread_join(threads[i], NULL));
+        TEST_ERROR_NONZERO(bw_thread_join(threads[i]));
 
         TEST_ASSERT_TRUE(stats[i].success);
 

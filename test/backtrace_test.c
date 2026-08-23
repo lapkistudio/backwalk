@@ -57,15 +57,15 @@ bool stop_after_n_frames_cb(uintptr_t addr, const char* fname, const char* sname
     return true;
 }
 
-__attribute__((noinline)) bool deep_function_3(context_t* ctx) {
+BW_NOINLINE bool deep_function_3(context_t* ctx) {
     return bw_backtrace(validate_backtrace, ctx);
 }
 
-__attribute__((noinline)) bool deep_function_2(context_t* ctx) {
+BW_NOINLINE bool deep_function_2(context_t* ctx) {
     return deep_function_3(ctx);
 }
 
-__attribute__((noinline)) bool deep_function_1(context_t* ctx) {
+BW_NOINLINE bool deep_function_1(context_t* ctx) {
     return deep_function_2(ctx);
 }
 

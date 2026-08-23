@@ -1,6 +1,9 @@
 // NOLINTBEGIN(misc-use-internal-linkage, cppcoreguidelines-pro-type-vararg)
+#ifndef _WIN32
 #include <cxxabi.h>             // for __cxa_demangle, abi
+#endif
 #include <stdlib.h>             // for free
+#include <string.h>             // for strcmp
 
 #include <cstdint>              // for uintptr_t
 
@@ -21,7 +24,7 @@ typedef struct {
     int sname_ok;
 } ns_backtrace_ctx_t;
 
-__attribute__((noinline)) bool ns_backtrace_cb(uintptr_t addr,
+BW_NOINLINE bool ns_backtrace_cb(uintptr_t addr,
                                                const char* fname,
                                                const char* sname,
                                                void* arg) {
@@ -34,7 +37,7 @@ __attribute__((noinline)) bool ns_backtrace_cb(uintptr_t addr,
     return true;
 }
 
-__attribute__((noinline)) bool inner_function(ns_backtrace_ctx_t& ctx) {
+BW_NOINLINE bool inner_function(ns_backtrace_ctx_t& ctx) {
     return bw_backtrace(ns_backtrace_cb, &ctx);
 }
 
@@ -50,11 +53,11 @@ TEST(backtrace, {
     TEST_ASSERT_EQ_INT32(ctx.sname_ok, ctx.fnum);
 })
 
-__attribute__((noinline)) bool lambda_caller(const std::function<bool()>& lambda) {
+BW_NOINLINE bool lambda_caller(const std::function<bool()>& lambda) {
     return lambda();
 }
 
-__attribute__((noinline)) bool increment_backtrace_cb(uintptr_t addr,
+BW_NOINLINE bool increment_backtrace_cb(uintptr_t addr,
                                                       const char* fname,
                                                       const char* sname,
                                                       void* arg) {
@@ -89,6 +92,23 @@ TEST(lambda_cb, {
     TEST_ASSERT_GE_INT32(fnum, 1);
 })
 
+#ifdef _WIN32
+TEST(demangle, {
+    auto lambda = [](uintptr_t, const char*, const char* sname, void* arg) {
+        auto* fail = static_cast<int*>(arg);
+        if (sname == nullptr || sname[0] == '\0' || sname[0] == '?') {
+            return true;
+        }
+        *fail = 0;
+        return false;
+    };
+
+    int fail = 1;
+    auto retval = bw_backtrace(lambda, &fail);
+    TEST_ASSERT_FALSE(retval);
+    TEST_ASSERT_EQ_INT32(fail, 0);
+})
+#else
 TEST(demangle, {
     auto lambda = [](uintptr_t, const char*, const char* sname, void* arg) {
         auto* fail = static_cast<int*>(arg);
@@ -103,6 +123,7 @@ TEST(demangle, {
     TEST_ASSERT_FALSE(retval);
     TEST_ASSERT_EQ_INT32(fail, 0);
 })
+#endif
 
 std::vector<uintptr_t> addrs;
 bool vector_collect(uintptr_t addr, const char* fname, const char* sname, void* arg) {
@@ -125,6 +146,7 @@ TEST(cross_namespace, {
 
 } // namespace other_ns
 
+#ifndef _WIN32
 extern "C" {
 char* bw_dbg_demangle(const char* sname) {
     int fail = 1;
@@ -136,6 +158,7 @@ void bw_dbg_demangle_free(char* sname) {
     free(sname); // NOLINT(cppcoreguidelines-no-malloc)
 }
 }
+#endif
 
 int main(int argc, char** argv) {
     TEST_INIT("cpp", argc, argv);

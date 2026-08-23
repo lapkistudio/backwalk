@@ -1,6 +1,11 @@
 #include <stdbool.h>            // for bool, true
 #include <stdint.h>             // for uintptr_t
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>            // for QueryPerformanceCounter
+#else
 #include <time.h>               // for clock_gettime, timespec, CLOCK_MONOTONIC
+#endif
 
 #include "common.h"             // for BW_UNUSED
 #include "backwalk/backwalk.h"  // for bw_backtrace
@@ -68,13 +73,27 @@ TEST(repeated_backtrace_calls, {
     TEST_ASSERT_GE_INT32(50, average);
 })
 
+static int64_t bw_now_ns(void) {
+#ifdef _WIN32
+    LARGE_INTEGER freq;
+    LARGE_INTEGER counter;
+    QueryPerformanceFrequency(&freq);
+    QueryPerformanceCounter(&counter);
+    return (int64_t)(counter.QuadPart * 1000000000 / freq.QuadPart);
+#else
+    struct timespec ts;
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+        return 0;
+    }
+    return ((int64_t)ts.tv_sec * 1000000000L) + ts.tv_nsec;
+#endif
+}
+
 TEST(backtrace_performance_basic, {
     const int iterations = 1000;
     const int64_t max_elapsed_ns = 500L * 1000 * 1000; // 500ms in nanoseconds
 
-    struct timespec start_time;
-    struct timespec end_time;
-    TEST_ERROR_NONZERO(clock_gettime(CLOCK_MONOTONIC, &start_time));
+    const int64_t start_time = bw_now_ns();
 
     for (int i = 0; i < iterations; i++) {
         int count = 0;
@@ -82,18 +101,14 @@ TEST(backtrace_performance_basic, {
         TEST_ASSERT_TRUE(success);
     }
 
-    TEST_ERROR_NONZERO(clock_gettime(CLOCK_MONOTONIC, &end_time));
+    const int64_t elapsed_ns = bw_now_ns() - start_time;
 
-    // Calculate elapsed time in nanoseconds
-    int64_t elapsed_ns = ((end_time.tv_sec - start_time.tv_sec) * 1000000000L) +
-                         (end_time.tv_nsec - start_time.tv_nsec);
-
-    // Should complete reasonably quickly (less than 100ms for 1000 iterations)
+    // Should complete reasonably quickly (less than 500ms for 1000 iterations)
     TEST_ASSERT_LE_INT64(elapsed_ns, max_elapsed_ns);
 })
 
 // NOLINTNEXTLINE(misc-no-recursion)
-__attribute__((noinline)) bool stress_recursive_helper(int depth, int max_depth) {
+BW_NOINLINE bool stress_recursive_helper(int depth, int max_depth) {
     if (depth >= max_depth) {
         int count = 0;
         return bw_backtrace(count_callback, &count);
