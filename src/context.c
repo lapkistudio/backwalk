@@ -47,10 +47,22 @@ bool context_step(context_t* ctx) {
     // NOLINTNEXTLINE(performance-no-int-to-ptr)
     uintptr_t* base = (uintptr_t*)ctx->data[0] + FP_OFFSET;
     MSAN_UNPOISON(base, sizeof(uintptr_t));
-    if (*base == ctx->data[0]) {
+    const uintptr_t next_fp = *base;
+    if (next_fp == ctx->data[0]) {
         return false;
     }
-    ctx->data[0] = *base;
+    // Null frame pointer marks the end of the chain on Unix (e.g. dyld start on macOS).
+    if (next_fp < BW_MIN_MMAP_ADDR) {
+        return false;
+    }
+
+#if defined(__x86_64__)
+    if (next_fp > BW_MAX_USER_ADDR) {
+        return false;
+    }
+#endif
+
+    ctx->data[0] = next_fp;
 
     MSAN_UNPOISON(base + 1, sizeof(uintptr_t));
     ctx->data[1] = *(base + 1);

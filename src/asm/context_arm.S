@@ -1,9 +1,17 @@
 #if defined(__arm__)
 
+#if defined(__APPLE__)
+#define ASMNAME _context_init_arch
+#else
+#define ASMNAME context_init_arch
+#endif
+
 .text
-.globl context_init_arch
-.type context_init_arch, %function
-context_init_arch:
+.globl ASMNAME
+#if defined(__ELF__)
+.type ASMNAME, %function
+#endif
+ASMNAME:
     # Stack base for caller
     str  r11, [r0]
         
