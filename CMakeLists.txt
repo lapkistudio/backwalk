@@ -117,6 +117,14 @@ if(WIN32)
 else()
     target_link_libraries(backwalk PUBLIC dl)
 endif()
+target_compile_options(
+    backwalk INTERFACE
+    $<$<AND:$<OR:$<C_COMPILER_ID:GNU>,$<C_COMPILER_ID:Clang>,$<C_COMPILER_ID:AppleClang>>,$<NOT:$<C_COMPILER_FRONTEND_VARIANT:MSVC>>>:-fno-omit-frame-pointer>
+)
+target_link_options(
+    backwalk INTERFACE
+    $<$<AND:$<PLATFORM_ID:Linux>,$<OR:$<C_COMPILER_ID:GNU>,$<C_COMPILER_ID:Clang>>>:-rdynamic>
+)
 if (BW_DEBUG_ENABLED)
     target_compile_definitions(backwalk PRIVATE BW_DEBUG_ENABLED)
 endif()

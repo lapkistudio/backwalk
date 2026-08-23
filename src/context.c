@@ -21,6 +21,16 @@ enum {
 #if defined(__x86_64__)
 // Upper bound for canonical userspace addresses (48-bit x86-64)
 static const uintptr_t BW_MAX_USER_ADDR = 0x00007FFFFFFFFFFFULL;
+#elif defined(__aarch64__)
+static const uintptr_t BW_MAX_USER_ADDR = 0x000FFFFFFFFFFFFFULL;
+#endif
+
+#if defined(__aarch64__)
+static uintptr_t bw_strip_pac(uintptr_t ptr) {
+    register uintptr_t lr __asm__("x30") = ptr;
+    __asm__ volatile("hint 7" : "+r"(lr));
+    return lr;
+}
 #endif
 
 bool context_step(context_t* ctx) {
@@ -32,8 +42,7 @@ bool context_step(context_t* ctx) {
         return false;
     }
 
-#if defined(__x86_64__)
-    // Check upper bound for canonical userspace addresses
+#if defined(__x86_64__) || defined(__aarch64__)
     if (ctx->data[0] > BW_MAX_USER_ADDR) {
         return false;
     }
@@ -56,16 +65,28 @@ bool context_step(context_t* ctx) {
         return false;
     }
 
-#if defined(__x86_64__)
+#if defined(__x86_64__) || defined(__aarch64__)
     if (next_fp > BW_MAX_USER_ADDR) {
         return false;
     }
 #endif
 
-    ctx->data[0] = next_fp;
-
     MSAN_UNPOISON(base + 1, sizeof(uintptr_t));
-    ctx->data[1] = *(base + 1);
+    uintptr_t next_ip = *(base + 1);
+#if defined(__aarch64__)
+    next_ip = bw_strip_pac(next_ip);
+#endif
+    if (next_ip < BW_MIN_MMAP_ADDR) {
+        return false;
+    }
+#if defined(__x86_64__) || defined(__aarch64__)
+    if (next_ip > BW_MAX_USER_ADDR) {
+        return false;
+    }
+#endif
+
+    ctx->data[0] = next_fp;
+    ctx->data[1] = next_ip;
 
     return true;
 }
