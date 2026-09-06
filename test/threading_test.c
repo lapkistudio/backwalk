@@ -88,16 +88,11 @@ static int bw_atomic_add(int* p, int v) {
 }
 #endif
 
-#include "common.h"             // for BW_UNUSED
-#include "backwalk/backwalk.h"  // for bw_backtrace, bw_backtrace_cb
-
-#include "test.h"               // for TEST_ERROR_NONZERO, TEST, TEST_ASSERT...
-
 enum { MAX_THREADS = 8 };
 enum { ITERATIONS_PER_THREAD = 100 };
 
 // Thread-safe counter callback
-bool thread_safe_counter(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool thread_safe_counter(uintptr_t addr, const char* fname, const char* sname, void* arg) {
     BW_UNUSED(addr);
     BW_UNUSED(fname);
     BW_UNUSED(sname);
@@ -109,7 +104,7 @@ bool thread_safe_counter(uintptr_t addr, const char* fname, const char* sname, v
 }
 
 // Callback that tracks thread-specific data
-bool track_thread_data(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool track_thread_data(uintptr_t addr, const char* fname, const char* sname, void* arg) {
     BW_UNUSED(addr);
 
     struct thread_stats {
@@ -142,7 +137,7 @@ typedef struct {
 } thread_data_t;
 
 // Basic backtrace thread function
-BW_NOINLINE void* backtrace_thread_func(void* arg) {
+static BW_NOINLINE void* backtrace_thread_func(void* arg) {
     thread_data_t* data = (thread_data_t*)arg;
 
     for (int i = 0; i < data->iterations; i++) {
@@ -165,7 +160,7 @@ BW_NOINLINE void* backtrace_thread_func(void* arg) {
 
 // Recursive thread function to create deeper stacks
 // NOLINTNEXTLINE(misc-no-recursion)
-BW_NOINLINE void* recursive_thread_helper(void* arg, int depth) {
+static BW_NOINLINE void* recursive_thread_helper(void* arg, int depth) {
     if (depth <= 0) {
         return backtrace_thread_func(arg);
     }
@@ -173,13 +168,13 @@ BW_NOINLINE void* recursive_thread_helper(void* arg, int depth) {
     return recursive_thread_helper(arg, depth - 1);
 }
 
-BW_NOINLINE void* recursive_backtrace_thread(void* arg) {
+static BW_NOINLINE void* recursive_backtrace_thread(void* arg) {
     const int recursion_depth = 5;
     return recursive_thread_helper(arg, recursion_depth); // 5 levels of recursion
 }
 
 // Function pointer thread to test indirect calls
-BW_NOINLINE void* function_pointer_thread(void* arg) {
+static BW_NOINLINE void* function_pointer_thread(void* arg) {
     thread_data_t* data = (thread_data_t*)arg;
 
     // Use function pointer for backtrace call
@@ -321,7 +316,7 @@ TEST(high_contention_backtrace, {
 })
 
 // Test thread-local data collection
-void* data_collection_thread(void* arg) {
+static void* data_collection_thread(void* arg) {
     struct thread_stats {
         int total_calls;
         int valid_fnames;

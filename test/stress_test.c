@@ -13,7 +13,7 @@
 #include "test.h"               // for TEST, TEST_ASSERT_GE_INT32, TEST_ASSE...
 
 // Simple counter callback for performance testing
-bool count_callback(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool count_callback(uintptr_t addr, const char* fname, const char* sname, void* arg) {
     BW_UNUSED(addr);
     BW_UNUSED(fname);
     BW_UNUSED(sname);
@@ -25,7 +25,7 @@ bool count_callback(uintptr_t addr, const char* fname, const char* sname, void* 
 }
 
 // Callback that does some work to test overhead
-bool work_callback(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool work_callback(uintptr_t addr, const char* fname, const char* sname, void* arg) {
     BW_UNUSED(addr);
 
     int* total_work = (int*)arg;
@@ -73,13 +73,19 @@ TEST(repeated_backtrace_calls, {
     TEST_ASSERT_GE_INT32(50, average);
 })
 
+enum { BW_NS_PER_SEC = 1000000000 };
+
 static int64_t bw_now_ns(void) {
 #ifdef _WIN32
     LARGE_INTEGER freq;
     LARGE_INTEGER counter;
-    QueryPerformanceFrequency(&freq);
-    QueryPerformanceCounter(&counter);
-    return (int64_t)(counter.QuadPart * 1000000000 / freq.QuadPart);
+    if (QueryPerformanceFrequency(&freq) == 0) {
+        return 0;
+    }
+    if (QueryPerformanceCounter(&counter) == 0) {
+        return 0;
+    }
+    return (int64_t)((counter.QuadPart * (int64_t)BW_NS_PER_SEC) / freq.QuadPart);
 #else
     struct timespec ts;
     if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
@@ -91,7 +97,7 @@ static int64_t bw_now_ns(void) {
 
 TEST(backtrace_performance_basic, {
     const int iterations = 1000;
-    const int64_t max_elapsed_ns = 500L * 1000 * 1000; // 500ms in nanoseconds
+    const int64_t max_elapsed_ns = (int64_t)500L * 1000 * 1000; // 500ms in nanoseconds
 
     const int64_t start_time = bw_now_ns();
 
@@ -108,7 +114,7 @@ TEST(backtrace_performance_basic, {
 })
 
 // NOLINTNEXTLINE(misc-no-recursion)
-BW_NOINLINE bool stress_recursive_helper(int depth, int max_depth) {
+static BW_NOINLINE bool stress_recursive_helper(int depth, int max_depth) {
     if (depth >= max_depth) {
         int count = 0;
         return bw_backtrace(count_callback, &count);

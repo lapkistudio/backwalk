@@ -1,4 +1,4 @@
-// NOLINTBEGIN(misc-use-internal-linkage, cppcoreguidelines-pro-type-vararg)
+// NOLINTBEGIN(misc-use-internal-linkage, cppcoreguidelines-pro-type-vararg, cppcoreguidelines-use-enum-class, performance-enum-size)
 #ifndef _WIN32
 #include <cxxabi.h>             // for __cxa_demangle, abi
 #endif
@@ -96,7 +96,7 @@ TEST(lambda_cb, {
 TEST(demangle, {
     auto lambda = [](uintptr_t, const char*, const char* sname, void* arg) {
         auto* fail = static_cast<int*>(arg);
-        if (sname == nullptr || sname[0] == '\0' || sname[0] == '?') {
+        if (sname == nullptr || *sname == '\0' || *sname == '?') {
             return true;
         }
         *fail = 0;
@@ -172,4 +172,4 @@ int main(int argc, char** argv) {
     TEST_EXIT();
 }
 
-// NOLINTEND(misc-use-internal-linkage, cppcoreguidelines-pro-type-vararg)
+// NOLINTEND(misc-use-internal-linkage, cppcoreguidelines-pro-type-vararg, cppcoreguidelines-use-enum-class, performance-enum-size)

@@ -12,13 +12,13 @@
 
 #define BW_ARRAY_LEN(arr) (sizeof(arr) / sizeof((arr)[0]))
 
-#if defined(_MSC_VER)
+#ifdef _MSC_VER
 #define BW_NOINLINE __declspec(noinline)
 #else
 #define BW_NOINLINE __attribute__((noinline))
 #endif
 
-#if defined(__clang__)
+#ifdef __clang__
 #define BW_NO_SANITIZE_ADDRESS __attribute__((no_sanitize("address")))
 #elif defined(_MSC_VER)
 #define BW_NO_SANITIZE_ADDRESS __declspec(no_sanitize_address)

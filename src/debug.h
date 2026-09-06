@@ -3,7 +3,7 @@
 
 #include <stdint.h>  // for uintptr_t
 
-#if !defined(BW_DEBUG_ENABLED)
+#ifndef BW_DEBUG_ENABLED
 #define BW_DEBUG_ENABLED 0
 #endif // BW_DEBUG_ENABLED
 

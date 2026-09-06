@@ -12,7 +12,7 @@
 #include <stdint.h>   // for uintptr_t
 #include <stdlib.h>   // for free, malloc
 
-#if defined(__linux__)
+#ifdef __linux__
 #include <fcntl.h>     // for O_RDONLY, open
 #include <link.h>      // for ElfW, RTLD_DL_LINKMAP, link_map
 #include <string.h>    // for memcpy
@@ -29,7 +29,7 @@
 #include "common.h"  // for BW_NOINLINE
 #include "debug.h"   // for BW_PRINT_FRAME
 
-#if defined(__linux__)
+#ifdef __linux__
 static bool bw_elf_sname(const char* path, uintptr_t bias, uintptr_t ip, char* out, size_t out_sz) {
     if (path == NULL || path[0] == '\0' || out_sz == 0) {
         return false;
@@ -141,7 +141,7 @@ static bool bw_frame_process(uintptr_t ip, bw_backtrace_cb cb, void* arg) {
     char sname_buf[BW_WIN_SNAME_MAX];
 #else
     Dl_info info = {0};
-#if defined(__linux__)
+#ifdef __linux__
     char sname_buf[256];
 #endif
 #endif
@@ -153,7 +153,7 @@ static bool bw_frame_process(uintptr_t ip, bw_backtrace_cb cb, void* arg) {
 #else
     // NOLINTNEXTLINE(performance-no-int-to-ptr)
     const void* probe = (const void*)(ip - 1);
-#if defined(__linux__)
+#ifdef __linux__
     void* extra = NULL;
     if (dladdr1(probe, &info, &extra, RTLD_DL_LINKMAP)) {
         mod_addr = ip - (uintptr_t)info.dli_fbase;

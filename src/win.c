@@ -100,6 +100,7 @@ BW_NO_SANITIZE_ADDRESS void bw_win_resolve(uintptr_t ip,
 
     if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
                                GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           // NOLINTNEXTLINE(performance-no-int-to-ptr)
                            (LPCSTR)(ULONG_PTR)ip,
                            &module) &&
         module != NULL) {
@@ -118,7 +119,9 @@ BW_NO_SANITIZE_ADDRESS void bw_win_resolve(uintptr_t ip,
         return;
     }
 
-    memset(sym_storage, 0, sizeof(sym_storage));
+    if (memset(sym_storage, 0, sizeof(sym_storage)) != sym_storage) {
+        return;
+    }
     info->SizeOfStruct = sizeof(SYMBOL_INFO);
     info->MaxNameLen = BW_WIN_SNAME_MAX;
 

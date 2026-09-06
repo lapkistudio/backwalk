@@ -9,7 +9,7 @@
 #include "test.h"               // for TEST, TEST_RUN, TEST_ASSERT_GE_INT32
 
 // Test callback that always returns false (stops immediately)
-bool stop_immediately_cb(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool stop_immediately_cb(uintptr_t addr, const char* fname, const char* sname, void* arg) {
     BW_UNUSED(addr);
     BW_UNUSED(fname);
     BW_UNUSED(sname);
@@ -21,7 +21,7 @@ bool stop_immediately_cb(uintptr_t addr, const char* fname, const char* sname, v
 }
 
 // Test callback that tracks null/invalid parameters
-bool track_nulls_cb(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool track_nulls_cb(uintptr_t addr, const char* fname, const char* sname, void* arg) {
     BW_UNUSED(addr);
 
     struct {
@@ -50,7 +50,7 @@ bool track_nulls_cb(uintptr_t addr, const char* fname, const char* sname, void* 
 }
 
 // Callback that counts all frames without stopping
-bool count_all_frames_cb(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool count_all_frames_cb(uintptr_t addr, const char* fname, const char* sname, void* arg) {
     BW_UNUSED(addr);
     BW_UNUSED(fname);
     BW_UNUSED(sname);
@@ -63,7 +63,7 @@ bool count_all_frames_cb(uintptr_t addr, const char* fname, const char* sname, v
 
 // Extremely deep recursion to test stack limits
 // NOLINTNEXTLINE(misc-no-recursion)
-BW_NOINLINE bool deep_recursion(int depth, int* max_frames_seen) {
+static BW_NOINLINE bool deep_recursion(int depth, int* max_frames_seen) {
     if (depth <= 0) {
         // At the deepest point, run backtrace
         int frame_count = 0;
@@ -117,7 +117,7 @@ TEST(very_deep_stack, {
 })
 
 // Test with different callback argument types
-bool test_different_args_cb(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool test_different_args_cb(uintptr_t addr, const char* fname, const char* sname, void* arg) {
     BW_UNUSED(addr);
     BW_UNUSED(fname);
     BW_UNUSED(sname);
@@ -147,7 +147,7 @@ TEST(valid_arg_parameter, {
 })
 
 // Test callback that modifies the arg extensively
-bool modify_arg_cb(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool modify_arg_cb(uintptr_t addr, const char* fname, const char* sname, void* arg) {
     BW_UNUSED(addr);
     BW_UNUSED(fname);
     BW_UNUSED(sname);
@@ -175,12 +175,12 @@ TEST(callback_modifies_arg, {
 // Test with function pointers and indirect calls
 typedef bool (*test_func_ptr_t)(void);
 
-BW_NOINLINE bool indirect_call_helper(void) {
+static BW_NOINLINE bool indirect_call_helper(void) {
     int count = 0;
     return bw_backtrace(stop_immediately_cb, &count);
 }
 
-BW_NOINLINE bool call_through_function_pointer(test_func_ptr_t func) {
+static BW_NOINLINE bool call_through_function_pointer(test_func_ptr_t func) {
     return func();
 }
 

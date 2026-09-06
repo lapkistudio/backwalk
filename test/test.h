@@ -86,7 +86,7 @@ typedef enum {
     } while (0)
 
 #define TEST(test_name, test_body)                                                                 \
-    BW_NOINLINE TEST_RESULT_ test_name(void) {                                                     \
+    BW_NOINLINE static TEST_RESULT_ test_name(void) {                                              \
         test_body;                                                                                 \
         TEST_OK();                                                                                 \
     }

@@ -13,7 +13,7 @@ Checks: >
   -misc-include-cleaner,
   -cppcoreguidelines-avoid-do-while,
   -cppcoreguidelines-avoid-non-const-global-variables,
-  -cppcoreguidelines-macro-usage
+  -cppcoreguidelines-macro-usage,
   -cppcoreguidelines-non-private-member-variables-in-classes,
   -cppcoreguidelines-owning-memory,
 

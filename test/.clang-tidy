@@ -1,0 +1,7 @@
+---
+InheritParentConfig: true
+Checks: >
+  -cppcoreguidelines-use-enum-class,
+  -performance-enum-size,
+  -misc-use-anonymous-namespace,
+  -misc-use-internal-linkage
