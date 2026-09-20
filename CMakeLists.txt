@@ -169,6 +169,7 @@ bw_disable_sibling_calls(backtrace_test)
 bw_disable_sibling_calls(edge_cases_test)
 
 bw_test(cpp_test)
+target_compile_features(cpp_test PRIVATE cxx_std_11)
 bw_disable_sibling_calls(cpp_test)
 
 bw_test(threading_test)

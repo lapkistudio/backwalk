@@ -72,6 +72,7 @@ __attribute__((noinline)) int raise_signal(int signo) {
 
 #pragma GCC diagnostic push
 #if defined(__clang__)
+#pragma GCC diagnostic ignored "-Wunknown-warning-option"
 #pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
 #pragma GCC diagnostic ignored "-Wc23-extensions"
 #endif
