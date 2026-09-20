@@ -3,13 +3,15 @@
 Backwalk calls a user-provided callback for each frame as it walks the stack:
 
 ```c
-typedef bool (*bw_backtrace_cb)(uintptr_t addr, const char* fname, const char* sname, void* arg);
+typedef bool (*bw_backtrace_cb)(uintptr_t addr, const char* fname, const char* sname, const char* src, uint32_t line, void* arg);
 ```
 
 **Callback parameters:**
-- `addr`: Module-relative address of the frame  
-- `fname`: Filename (executable/library), or `"?"` if unknown  
+- `addr`: Module-relative address of the frame
+- `fname`: Filename (executable/library), or `"?"` if unknown
 - `sname`: Symbol name (function name), or `"?"` if unknown
+- `src`: Source file of the call site, or `"?"` if unknown
+- `line`: Source line of the call site, or `0` if unknown
 - `arg`: User context passed through from `bw_backtrace()` (can be `NULL`).
 
 The `addr` parameter contains module-relative offsets, not absolute virtual addresses. This works
@@ -25,7 +27,7 @@ Return `true` to continue walking, `false` to stop.
 
 ## Basic Usage
 ```c
-bool print_frame(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+bool print_frame(uintptr_t addr, const char* fname, const char* sname, const char* src, uint32_t line, void* arg) {
     printf("0x%016lx: %s (%s)\n", addr, sname, fname);
     return true;  // Continue walking
 }
@@ -43,7 +45,7 @@ typedef struct {
     size_t max_frames;
 } collector_t;
 
-bool collect_frame(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+bool collect_frame(uintptr_t addr, const char* fname, const char* sname, const char* src, uint32_t line, void* arg) {
     collector_t* c = (collector_t*)arg;
     if (c->count < c->max_frames) {
         c->addrs[c->count++] = addr;
@@ -68,7 +70,7 @@ namespace stacktrace {
 
 std::vector<uintptr_t> addresses;
 
-bool collect_cpp(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+bool collect_cpp(uintptr_t addr, const char* fname, const char* sname, const char* src, uint32_t line, void* arg) {
     auto* vec = static_cast<std::vector<uintptr_t>*>(arg);
     vec->push_back(addr);
     return true;

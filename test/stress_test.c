@@ -13,10 +13,12 @@
 #include "test.h"               // for TEST, TEST_ASSERT_GE_INT32, TEST_ASSE...
 
 // Simple counter callback for performance testing
-static bool count_callback(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool count_callback(uintptr_t addr, const char* fname, const char* sname, const char* src, uint32_t line, void* arg) {
     BW_UNUSED(addr);
     BW_UNUSED(fname);
     BW_UNUSED(sname);
+    BW_UNUSED(src);
+    BW_UNUSED(line);
 
     int* count = (int*)arg;
     (*count)++;
@@ -25,8 +27,10 @@ static bool count_callback(uintptr_t addr, const char* fname, const char* sname,
 }
 
 // Callback that does some work to test overhead
-static bool work_callback(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool work_callback(uintptr_t addr, const char* fname, const char* sname, const char* src, uint32_t line, void* arg) {
     BW_UNUSED(addr);
+    BW_UNUSED(src);
+    BW_UNUSED(line);
 
     int* total_work = (int*)arg;
 

@@ -92,10 +92,12 @@ enum { MAX_THREADS = 8 };
 enum { ITERATIONS_PER_THREAD = 100 };
 
 // Thread-safe counter callback
-static bool thread_safe_counter(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool thread_safe_counter(uintptr_t addr, const char* fname, const char* sname, const char* src, uint32_t line, void* arg) {
     BW_UNUSED(addr);
     BW_UNUSED(fname);
     BW_UNUSED(sname);
+    BW_UNUSED(src);
+    BW_UNUSED(line);
 
     volatile int* count = (volatile int*)arg;
     (void)bw_atomic_add((int*)count, 1);
@@ -104,8 +106,10 @@ static bool thread_safe_counter(uintptr_t addr, const char* fname, const char* s
 }
 
 // Callback that tracks thread-specific data
-static bool track_thread_data(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool track_thread_data(uintptr_t addr, const char* fname, const char* sname, const char* src, uint32_t line, void* arg) {
     BW_UNUSED(addr);
+    BW_UNUSED(src);
+    BW_UNUSED(line);
 
     struct thread_stats {
         int total_calls;

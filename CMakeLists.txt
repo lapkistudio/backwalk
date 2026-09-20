@@ -92,7 +92,7 @@ set(BACKWALK_SRC_LIST
     ${CMAKE_CURRENT_BINARY_DIR}/gen/version.c
 )
 if(WIN32)
-    list(APPEND BACKWALK_SRC_LIST ${BACKWALK_SRC_DIR}/win.c)
+    list(APPEND BACKWALK_SRC_LIST ${BACKWALK_SRC_DIR}/win.c ${BACKWALK_SRC_DIR}/dwarf_line.c)
 else()
     list(APPEND BACKWALK_SRC_LIST
         ${BACKWALK_SRC_DIR}/common.c
@@ -143,8 +143,6 @@ function(bw_test TEST_NAME)
     if(WIN32)
         if(MSVC)
             target_link_options(${TEST_NAME} PRIVATE /DEBUG)
-        else()
-            target_link_options(${TEST_NAME} PRIVATE "LINKER:/DEBUG")
         endif()
     else()
         target_link_options(${TEST_NAME} PRIVATE -rdynamic)

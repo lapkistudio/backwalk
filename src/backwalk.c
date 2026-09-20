@@ -136,9 +136,12 @@ static bool bw_frame_process(uintptr_t ip, bw_backtrace_cb cb, void* arg) {
     uintptr_t mod_addr = 0;
     const char* fname = "?";
     const char* sname = "?";
+    const char* src = "?";
+    uint32_t line = 0;
 #ifdef _WIN32
     char fname_buf[BW_WIN_FNAME_MAX];
     char sname_buf[BW_WIN_SNAME_MAX];
+    char src_buf[BW_WIN_SRC_MAX];
 #else
     Dl_info info = {0};
 #ifdef __linux__
@@ -147,9 +150,18 @@ static bool bw_frame_process(uintptr_t ip, bw_backtrace_cb cb, void* arg) {
 #endif
 
 #ifdef _WIN32
-    bw_win_resolve(ip, &mod_addr, fname_buf, sizeof(fname_buf), sname_buf, sizeof(sname_buf));
+    bw_win_resolve(ip,
+                   &mod_addr,
+                   fname_buf,
+                   sizeof(fname_buf),
+                   sname_buf,
+                   sizeof(sname_buf),
+                   src_buf,
+                   sizeof(src_buf),
+                   &line);
     fname = fname_buf;
     sname = sname_buf;
+    src = src_buf;
 #else
     // NOLINTNEXTLINE(performance-no-int-to-ptr)
     const void* probe = (const void*)(ip - 1);
@@ -179,7 +191,7 @@ static bool bw_frame_process(uintptr_t ip, bw_backtrace_cb cb, void* arg) {
 
     BW_PRINT_FRAME(mod_addr, fname, sname);
 
-    if (cb && !cb(mod_addr, fname, sname, arg)) {
+    if (cb && !cb(mod_addr, fname, sname, src, line, arg)) {
         return false;
     }
 

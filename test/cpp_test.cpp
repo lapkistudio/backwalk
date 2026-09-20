@@ -5,7 +5,7 @@
 #include <stdlib.h>             // for free
 #include <string.h>             // for strcmp
 
-#include <cstdint>              // for uintptr_t
+#include <cstdint>              // for uintptr_t, uint32_t
 
 #include <functional>           // for function
 #include <vector>               // for vector
@@ -27,7 +27,11 @@ typedef struct {
 BW_NOINLINE bool ns_backtrace_cb(uintptr_t addr,
                                                const char* fname,
                                                const char* sname,
+                                               const char* src,
+                                               uint32_t line,
                                                void* arg) {
+    BW_UNUSED(src);
+    BW_UNUSED(line);
     auto* ctx = static_cast<ns_backtrace_ctx_t*>(arg);
     ctx->addr_ok += addr != 0 ? 1 : 0;
     ctx->fname_ok += fname != nullptr && *fname != '\0' ? 1 : 0;
@@ -60,10 +64,14 @@ BW_NOINLINE bool lambda_caller(const std::function<bool()>& lambda) {
 BW_NOINLINE bool increment_backtrace_cb(uintptr_t addr,
                                                       const char* fname,
                                                       const char* sname,
+                                                      const char* src,
+                                                      uint32_t line,
                                                       void* arg) {
     BW_UNUSED(addr);
     BW_UNUSED(fname);
     BW_UNUSED(sname);
+    BW_UNUSED(src);
+    BW_UNUSED(line);
     auto* fnum = static_cast<int*>(arg);
     *fnum += 1;
 
@@ -81,7 +89,7 @@ TEST(lambda_in_callstack, {
 
 TEST(lambda_cb, {
     int fnum = 0;
-    auto lambda = [](uintptr_t, const char*, const char*, void* arg) {
+    auto lambda = [](uintptr_t, const char*, const char*, const char*, uint32_t, void* arg) {
         int* fnum = static_cast<int*>(arg);
         *fnum += 1;
         return true;
@@ -94,7 +102,7 @@ TEST(lambda_cb, {
 
 #ifdef _WIN32
 TEST(demangle, {
-    auto lambda = [](uintptr_t, const char*, const char* sname, void* arg) {
+    auto lambda = [](uintptr_t, const char*, const char* sname, const char*, uint32_t, void* arg) {
         auto* fail = static_cast<int*>(arg);
         if (sname == nullptr || *sname == '\0' || *sname == '?') {
             return true;
@@ -110,7 +118,7 @@ TEST(demangle, {
 })
 #else
 TEST(demangle, {
-    auto lambda = [](uintptr_t, const char*, const char* sname, void* arg) {
+    auto lambda = [](uintptr_t, const char*, const char* sname, const char*, uint32_t, void* arg) {
         auto* fail = static_cast<int*>(arg);
         auto* demangled = abi::__cxa_demangle(sname, nullptr, nullptr, fail);
         free(demangled); // NOLINT(cppcoreguidelines-no-malloc)
@@ -126,9 +134,11 @@ TEST(demangle, {
 #endif
 
 std::vector<uintptr_t> addrs;
-bool vector_collect(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+bool vector_collect(uintptr_t addr, const char* fname, const char* sname, const char* src, uint32_t line, void* arg) {
     BW_UNUSED(fname);
     BW_UNUSED(sname);
+    BW_UNUSED(src);
+    BW_UNUSED(line);
     auto* vec = static_cast<std::vector<uintptr_t>*>(arg);
     vec->push_back(addr);
     return true;

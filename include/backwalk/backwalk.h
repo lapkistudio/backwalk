@@ -7,14 +7,15 @@
 #else
 #include <stdbool.h>  // for bool
 #include <stddef.h>   // for size_t
-#include <stdint.h>   // for uintptr_t
 #endif
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef bool (*bw_backtrace_cb)(uintptr_t addr, const char* fname, const char* sname, void* arg);
+typedef bool (*bw_backtrace_cb)(
+    uintptr_t addr, const char* fname, const char* sname, const char* src, uint32_t line, void* arg);
 
 typedef struct bw_context bw_context_t;
 

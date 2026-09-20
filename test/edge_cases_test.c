@@ -9,10 +9,12 @@
 #include "test.h"               // for TEST, TEST_RUN, TEST_ASSERT_GE_INT32
 
 // Test callback that always returns false (stops immediately)
-static bool stop_immediately_cb(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool stop_immediately_cb(uintptr_t addr, const char* fname, const char* sname, const char* src, uint32_t line, void* arg) {
     BW_UNUSED(addr);
     BW_UNUSED(fname);
     BW_UNUSED(sname);
+    BW_UNUSED(src);
+    BW_UNUSED(line);
 
     int* call_count = (int*)arg;
     (*call_count)++;
@@ -21,8 +23,10 @@ static bool stop_immediately_cb(uintptr_t addr, const char* fname, const char* s
 }
 
 // Test callback that tracks null/invalid parameters
-static bool track_nulls_cb(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool track_nulls_cb(uintptr_t addr, const char* fname, const char* sname, const char* src, uint32_t line, void* arg) {
     BW_UNUSED(addr);
+    BW_UNUSED(src);
+    BW_UNUSED(line);
 
     struct {
         int total_calls;
@@ -50,10 +54,12 @@ static bool track_nulls_cb(uintptr_t addr, const char* fname, const char* sname,
 }
 
 // Callback that counts all frames without stopping
-static bool count_all_frames_cb(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool count_all_frames_cb(uintptr_t addr, const char* fname, const char* sname, const char* src, uint32_t line, void* arg) {
     BW_UNUSED(addr);
     BW_UNUSED(fname);
     BW_UNUSED(sname);
+    BW_UNUSED(src);
+    BW_UNUSED(line);
 
     int* count = (int*)arg;
     (*count)++;
@@ -117,10 +123,12 @@ TEST(very_deep_stack, {
 })
 
 // Test with different callback argument types
-static bool test_different_args_cb(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool test_different_args_cb(uintptr_t addr, const char* fname, const char* sname, const char* src, uint32_t line, void* arg) {
     BW_UNUSED(addr);
     BW_UNUSED(fname);
     BW_UNUSED(sname);
+    BW_UNUSED(src);
+    BW_UNUSED(line);
 
     // arg could be anything - just test we don't crash
     if (arg != NULL) {
@@ -147,10 +155,12 @@ TEST(valid_arg_parameter, {
 })
 
 // Test callback that modifies the arg extensively
-static bool modify_arg_cb(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool modify_arg_cb(uintptr_t addr, const char* fname, const char* sname, const char* src, uint32_t line, void* arg) {
     BW_UNUSED(addr);
     BW_UNUSED(fname);
     BW_UNUSED(sname);
+    BW_UNUSED(src);
+    BW_UNUSED(line);
 
     const int increment = 100;
 

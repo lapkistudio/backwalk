@@ -24,9 +24,11 @@ typedef struct {
     bool sname_found[SNAME_ENTRIES_MAX];
 } context_t;
 
-static bool validate_backtrace(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool validate_backtrace(uintptr_t addr, const char* fname, const char* sname, const char* src, uint32_t line, void* arg) {
     BW_UNUSED(addr);
     BW_UNUSED(fname);
+    BW_UNUSED(src);
+    BW_UNUSED(line);
 
     context_t* ctx = arg;
     size_t fnum = ctx->fnum++;
@@ -43,10 +45,12 @@ typedef struct {
     size_t fnum_max;
 } stop_context_t;
 
-static bool stop_after_n_frames_cb(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool stop_after_n_frames_cb(uintptr_t addr, const char* fname, const char* sname, const char* src, uint32_t line, void* arg) {
     BW_UNUSED(addr);
     BW_UNUSED(fname);
     BW_UNUSED(sname);
+    BW_UNUSED(src);
+    BW_UNUSED(line);
 
     stop_context_t* ctx = arg;
     ++ctx->fnum;
@@ -116,8 +120,10 @@ TEST(null_callback, {
     BW_UNUSED(success); // Accept either true or false
 })
 
-static bool collect_symbols_cb(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool collect_symbols_cb(uintptr_t addr, const char* fname, const char* sname, const char* src, uint32_t line, void* arg) {
     BW_UNUSED(addr);
+    BW_UNUSED(src);
+    BW_UNUSED(line);
 
     int* valid_symbols = (int*)arg;
 

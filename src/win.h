@@ -7,6 +7,7 @@
 enum { BW_WIN_MAX_FRAMES = 64 };
 enum { BW_WIN_FNAME_MAX = 260 };
 enum { BW_WIN_SNAME_MAX = 512 };
+enum { BW_WIN_SRC_MAX = 512 };
 
 size_t bw_win_capture(uintptr_t* ips, size_t max);
 
@@ -15,6 +16,9 @@ void bw_win_resolve(uintptr_t ip,
                     char* fname,
                     size_t fname_len,
                     char* sname,
-                    size_t sname_len);
+                    size_t sname_len,
+                    char* src,
+                    size_t src_len,
+                    uint32_t* line);
 
 #endif // BW_WIN_H

@@ -45,7 +45,7 @@ Individual test executables are available in the `build/` directory after buildi
 #include <stdio.h>
 #include <backwalk/backwalk.h>
 
-bool print_frame(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+bool print_frame(uintptr_t addr, const char* fname, const char* sname, const char* src, uint32_t line, void* arg) {
     int* frame_index = (int*)arg;
     printf("[%d] 0x%012lx: %s (%s)\n", (*frame_index)++, addr, sname, fname);
     return true; // Continue walking

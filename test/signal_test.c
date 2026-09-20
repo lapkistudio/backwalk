@@ -27,10 +27,12 @@ typedef struct {
 
 test_state_t test_state;
 
-static bool backtrace_cb(uintptr_t addr, const char* fname, const char* sname, void* arg) {
+static bool backtrace_cb(uintptr_t addr, const char* fname, const char* sname, const char* src, uint32_t line, void* arg) {
     BW_UNUSED(addr);
     BW_UNUSED(fname);
     BW_UNUSED(sname);
+    BW_UNUSED(src);
+    BW_UNUSED(line);
 
     size_t* frame_cnt = (size_t*)arg;
     ++*frame_cnt;
