@@ -24,6 +24,14 @@ typedef struct {
     bool sname_found[SNAME_ENTRIES_MAX];
 } context_t;
 
+static bool sname_matches(const char* sname, const char* exp) {
+    size_t n = strlen(exp);
+    if (strncmp(sname, exp, n) != 0) {
+        return false;
+    }
+    return sname[n] == '\0' || sname[n] == '.';
+}
+
 static bool validate_backtrace(uintptr_t addr, const char* fname, const char* sname, const char* src, uint32_t line, void* arg) {
     BW_UNUSED(addr);
     BW_UNUSED(fname);
@@ -31,10 +39,17 @@ static bool validate_backtrace(uintptr_t addr, const char* fname, const char* sn
     BW_UNUSED(line);
 
     context_t* ctx = arg;
-    size_t fnum = ctx->fnum++;
+    ctx->fnum++;
 
-    if (fnum < ctx->sname_entries_len && strcmp(sname, ctx->sname_exp[fnum]) == 0) {
-        ctx->sname_found[fnum] = true;
+    if (sname == NULL) {
+        return true;
+    }
+
+    for (size_t i = 0; i < ctx->sname_entries_len; ++i) {
+        if (!ctx->sname_found[i] && sname_matches(sname, ctx->sname_exp[i])) {
+            ctx->sname_found[i] = true;
+            break;
+        }
     }
 
     return true;
@@ -61,15 +76,20 @@ static bool stop_after_n_frames_cb(uintptr_t addr, const char* fname, const char
     return true;
 }
 
+static volatile int deep_id;
+
 static BW_NOINLINE bool deep_function_3(context_t* ctx) {
+    deep_id = 3;
     return bw_backtrace(validate_backtrace, ctx);
 }
 
 static BW_NOINLINE bool deep_function_2(context_t* ctx) {
+    deep_id = 2;
     return deep_function_3(ctx);
 }
 
 static BW_NOINLINE bool deep_function_1(context_t* ctx) {
+    deep_id = 1;
     return deep_function_2(ctx);
 }
 
